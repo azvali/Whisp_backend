@@ -79,7 +79,7 @@ def createUser():
 
 
 #endpoint to validate user login data
-@app.route('/whispbackend-production.up.railway.app/api/login/', methods=['POST'])
+@app.route('/api/login/', methods=['POST'])
 def checkLogin():
     
     try:
