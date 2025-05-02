@@ -46,12 +46,12 @@ db.init_app(app)
 API_KEY = os.environ.get('API_KEY')
 
 
-@app.route('/hello', methods=['POST'])
+@app.route('/hello/', methods=['POST'])
 def test():
     return jsonify({"message": "Backend is working!"})
 
 #endpoint to recieve sign up user data and stores it
-@app.route('/api/signup', methods=['POST'])
+@app.route('/api/signup/', methods=['POST'])
 def createUser():
     
     try:
@@ -79,7 +79,7 @@ def createUser():
 
 
 #endpoint to validate user login data
-@app.route('/api/login', methods=['POST'])
+@app.route('/api/login/', methods=['POST'])
 def checkLogin():
     
     try:
@@ -109,7 +109,7 @@ def checkLogin():
 
 
 
-@app.route('/api/forgotpassword', methods=['POST'])
+@app.route('/api/forgotpassword/', methods=['POST'])
 def forgotPassword():
     
     try:
@@ -174,7 +174,7 @@ def forgotPassword():
 
 
 
-@app.route('/api/handlereset' , methods=['POST'])
+@app.route('/api/handlereset/' , methods=['POST'])
 def handleReset():
     
     data = request.get_json()
