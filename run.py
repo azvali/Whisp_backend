@@ -17,7 +17,17 @@ load_dotenv()
 
 #initialize the flask app and give cors support
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={
+    r"/api/*": {
+        "origins": [
+            "http://localhost:5173",  # Local development
+            "https://whisp-production-72e9.up.railway.app"  # Production
+        ],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
+
 
 
 #database connection details
