@@ -17,7 +17,7 @@ load_dotenv()
 
 #initialize the flask app and give cors support
 app = Flask(__name__)
-CORS(app, 
+CORS(app,
      resources={r"/*": {"origins": "*"}},
      allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
