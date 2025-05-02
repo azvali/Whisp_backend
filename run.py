@@ -132,7 +132,6 @@ def forgotPassword():
          
         token = jwt.encode(payload, secret_key, algorithm='HS256')
         
-        
         to = [SendSmtpEmailTo(email=email)]
         FRONTEND_URL = os.environ.get('FRONTEND_URL')
         
