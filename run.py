@@ -51,7 +51,7 @@ def test():
     return jsonify({"message": "Backend is working!"})
 
 #endpoint to recieve sign up user data and stores it
-@app.route('/whispbackend-production.up.railway.app/api/login/', methods=['POST'])
+@app.route('/api/signup/', methods=['POST'])
 def createUser():
     
     try:
@@ -79,8 +79,7 @@ def createUser():
 
 
 #endpoint to validate user login data
-@app.route('/api/login', methods=['POST'])
-@app.route('/api/login/', methods=['POST'])
+@app.route('/whispbackend-production.up.railway.app/api/login/', methods=['POST'])
 def checkLogin():
     
     try:
