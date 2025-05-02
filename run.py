@@ -134,12 +134,12 @@ def forgotPassword():
         
         
         to = [SendSmtpEmailTo(email=email)]
-        
+        FRONTEND_URL = os.environ.get('FRONTEND_URL')
         
         send_smtp_email = SendSmtpEmail(
         to=to,
         subject="Password Reset",
-        html_content=f'Click <a href=\'http://localhost:5173/?token={token}\'>here</a> to reset your password.',
+        html_content=f'Click <a href=\'{FRONTEND_URL}/?token={token}\'>here</a> to reset your password.',
         sender={"name":"Whisp", "email":"yousefm2315@gmail.com"}
         )
         
