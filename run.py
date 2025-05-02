@@ -51,7 +51,7 @@ def test():
     return jsonify({"message": "Backend is working!"})
 
 #endpoint to recieve sign up user data and stores it
-@app.route('/api/signup/', methods=['POST'])
+@app.route('/whispbackend-production.up.railway.app/api/login/', methods=['POST'])
 def createUser():
     
     try:
