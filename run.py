@@ -46,7 +46,7 @@ db.init_app(app)
 API_KEY = os.environ.get('API_KEY')
 
 
-@app.route('/')
+@app.route('/hello', methods=['POST'])
 def test():
     return jsonify({"message": "Backend is working!"})
 
