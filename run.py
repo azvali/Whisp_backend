@@ -52,6 +52,10 @@ db.init_app(app)
 API_KEY = os.environ.get('API_KEY')
 
 
+@app.route('/')
+def test():
+    return jsonify({"message": "Backend is working!"})
+
 #endpoint to recieve sign up user data and stores it
 @app.route('/api/signup', methods=['POST'])
 def createUser():
