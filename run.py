@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import os
 from flask_cors import CORS
-from backend.Whisp_backend.app.models.models import db, users, messages
+from app.models.models import db, users, messages
 from werkzeug.security import generate_password_hash, check_password_hash
 from sib_api_v3_sdk import SendSmtpEmail, SendSmtpEmailTo, ApiClient, TransactionalEmailsApi, Configuration
 import jwt
