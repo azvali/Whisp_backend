@@ -3,12 +3,13 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import os
 from flask_cors import CORS
-from app.models.users_model import db, users
+from backend.Whisp_backend.app.models.models import db, users, messages
 from werkzeug.security import generate_password_hash, check_password_hash
 from sib_api_v3_sdk import SendSmtpEmail, SendSmtpEmailTo, ApiClient, TransactionalEmailsApi, Configuration
 import jwt
 import datetime
 from datetime import timezone
+from flask_socketio import SocketIO, emit, join_room
 
 
 #loads the enviorment variables
@@ -34,9 +35,16 @@ db.init_app(app)
 API_KEY = os.environ.get('API_KEY')
 
 
-@app.route('/api/hello/', methods=['POST'])
-def test():
-    return jsonify({"message": "Backend is working!"})
+
+
+
+
+
+
+
+#Endpoints
+#############################################################################################
+
 
 #endpoint to recieve sign up user data and stores it
 @app.route('/api/signup/', methods=['POST'])
@@ -199,8 +207,98 @@ def handleReset():
     
     return jsonify({"Message" : "Password reset successful."}), 200
     
+    
+@app.route('/api/getmessages/<int:user_id>/<int:contact_id>', methods=['GET'])
+def getMessages(user_id, contact_id):
+    
+    try:
+        conversation = messages.query.filter(
+            db.or_(
+                (messages.sender_id == user_id) & (messages.receiver_id == contact_id),
+                (messages.sender_id == contact_id) & (messages.receiver_id == user_id)
+            )
+        ).order_by(messages.timestamp.asc()).all()
+        
+        messages_list = []
+        for msg in conversation:
+            messages_list.append({
+                'id': msg.id,
+                'sender_id': msg.sender_id,
+                'receiver_id': msg.receiver_id,
+                'content': msg.content,
+                'timestamp': msg.timestamp.isoformat()
+            })
+            
+            
+        return jsonify({'messages': messages_list}), 200
+    
+    except Exception as e:
+        return jsonify({'Message' : str(e)}), 500
+    
+################################################################################################
+
+
+
+
+#sockets
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+    
+@socketio.on('join')
+def handle_join(data):
+    user_id = data.get('user_id')
+    join_room(f'user_{user_id}')
+    print(f'Client joined room: user_{user_id}')
+    
+    
+@socketio.on('private_message')
+def handle_private_message(data):
+    sender_id = data.get('sender_id')
+    receiver_id = data.get('receiver_id')
+    content = data.get('message')
+    
+    new_message = messages(sender_id = sender_id,
+                           receiver_id = receiver_id,
+                           content = content
+                           )
+    db.session.add(new_message)
+    db.session.commit()
+    
+    emit('new_message', {
+        'id': new_message.id,
+        'sender_id': sender_id,
+        'content': content,
+        'timestamp': new_message.timestamp.isoformat()
+    }, room = f'user_{receiver_id}')
+    
+    
+    
+    
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    
+    # app.run(host="0.0.0.0", port=port, debug=True)
+    socketio.run(app, host="0.0.0.0", port=port, debug=True)
