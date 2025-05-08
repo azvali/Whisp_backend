@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import os
 from flask_cors import CORS
-from app.models.models import db, users, messages
+from app.models.models import db, users, messages, friend_requests
 from werkzeug.security import generate_password_hash, check_password_hash
 from sib_api_v3_sdk import SendSmtpEmail, SendSmtpEmailTo, ApiClient, TransactionalEmailsApi, Configuration
 import jwt
@@ -235,6 +235,71 @@ def getMessages(user_id, contact_id):
     except Exception as e:
         return jsonify({'Message' : str(e)}), 500
     
+    
+    
+@app.route('/api/getfriendrequests/<int:user_id>', methods=['GET'])
+def getFriendRequests(user_id):
+    
+    requests = friend_requests.query.filter_by(receiver_id=user_id, status='pending').all()
+    
+    requests_list = []
+    for r in requests:
+        requests_list.append({
+            'id': r.id,
+            'sender_id': r.sender_id,
+            'sender_username': users.query.get(r.sender_id).username
+        })
+        
+    return jsonify({'requests': requests_list}), 200
+
+
+@app.route('/api/getfriends/<int:user_id>', methods=['GET'])
+def getFriends(user_id):
+    
+    friends = friend_requests.query.filter(
+        db.or_(
+            db.and_(friend_requests.sender_id == user_id, friend_requests.status == 'accepted'),
+            db.and_(friend_requests.receiver_id == user_id, friend_requests.status == 'accepted')
+        )
+    ).all()
+    
+    friends_list = []
+    for f in friends:
+        friends_list.append({
+            'id': f.id,
+            'user_id': f.sender_id if f.sender_id != user_id else f.receiver_id,
+            'username': users.query.get(f.sender_id if f.sender_id != user_id else f.receiver_id).username
+        })
+        
+    return jsonify({'friends': friends_list}), 200
+
+
+
+
+@app.route('/api/users/search', methods=['GET'])
+def search_users():
+    username = request.args.get('username')
+    if not username:
+        return jsonify({'users': []}), 400
+    
+    # Search for users with similar username
+    found_users = users.query.filter(users.username.ilike(f'%{username}%')).all()
+    
+    user_list = []
+    for user in found_users:
+        user_list.append({
+            'id': user.id,
+            'username': user.username
+        })
+    
+    return jsonify({'users': user_list})
+
+
+
+
+
+
+
 ################################################################################################
 
 
@@ -254,25 +319,142 @@ def handle_join(data):
     print(f'Client joined room: user_{user_id}')
     
     
-@socketio.on('private_message')
-def handle_private_message(data):
+@socketio.on('send_friend_request')
+def handle_friend_request(data):
+    print("Received friend request data:", data)
+    
     sender_id = data.get('sender_id')
-    receiver_id = data.get('receiver_id')
-    content = data.get('message')
+    receiver_username = data.get('receiver_username')
     
-    new_message = messages(sender_id = sender_id,
-                           receiver_id = receiver_id,
-                           content = content
-                           )
-    db.session.add(new_message)
+    print(f"Looking for user with username: {receiver_username}")
+    receiver = users.query.filter(users.username == receiver_username).first()
+    
+    if not receiver:
+        print(f"User '{receiver_username}' not found")
+        return {'success': False, 'message': 'User not found'}
+    
+    print(f"Found user: ID={receiver.id}, Username={receiver.username}")
+    
+    # Prevent sending request to self
+    if sender_id == receiver.id:
+        print(f"User tried to send friend request to themselves")
+        return {'success': False, 'message': 'You cannot add yourself as a friend'}
+    
+    # Check if there's already a pending request
+    existing_request = friend_requests.query.filter_by(
+        sender_id=sender_id,
+        receiver_id=receiver.id,
+        status='pending'
+    ).first()
+    
+    if existing_request:
+        print(f"Friend request already exists: ID={existing_request.id}")
+        return {'success': False, 'message': 'Friend request already sent'}
+    
+    #checking for existing friendship
+    existing_friendship = friend_requests.query.filter(
+        db.or_(
+            db.and_(
+                friend_requests.sender_id == sender_id,
+                friend_requests.receiver_id == receiver.id,
+                friend_requests.status == 'accepted'
+            ),
+            db.and_(
+                friend_requests.sender_id == receiver.id,
+                friend_requests.receiver_id == sender_id,
+                friend_requests.status == 'accepted'
+            )
+        )
+    ).first()
+    
+    if existing_friendship:
+        print(f"Users are already friends: Friendship ID={existing_friendship.id}")
+        return {'success': False, 'message': 'You are already friends with this user'}
+    
+    #check if the other user already send a request
+    reverse_request = friend_requests.query.filter_by(
+        sender_id=receiver.id,
+        receiver_id=sender_id,
+        status='pending'
+    ).first()
+    
+    if reverse_request:
+        print(f"Reverse friend request exists: ID={reverse_request.id}")
+        return {'success': False, 'message': 'This user has already sent you a friend request. Check your friend requests.'}
+    
+    new_Request = friend_requests(sender_id = sender_id,
+                                  receiver_id = receiver.id,
+                                  status = 'pending')
+    
+    db.session.add(new_Request)
     db.session.commit()
+    print(f"New friend request created: ID={new_Request.id}")
     
-    emit('new_message', {
-        'id': new_message.id,
+    print(f"Emitting friend_request event to room: user_{receiver.id}")
+    emit('friend_request', {
+        'id': new_Request.id,
         'sender_id': sender_id,
-        'content': content,
-        'timestamp': new_message.timestamp.isoformat()
-    }, room = f'user_{receiver_id}')
+        'sender_username': users.query.get(sender_id).username
+    }, room=f'user_{receiver.id}')
+    
+    return {'success': True, 'message': 'Friend request sent'}
+    
+    
+@socketio.on('accept_friend_request')
+def handle_accept_friend_request(data):
+    request_id = data.get('request_id')
+    request = friend_requests.query.get(request_id)
+    
+    if request:
+        request.status = 'accepted'
+        db.session.commit()
+        
+        emit('friend_request_accepted', {
+            'id': request.id,
+            'user_id': request.receiver_id,
+            'username': users.query.get(request.receiver_id).username
+        }, room=f'user_{request.sender_id}')
+        
+        emit('friend_request_accepted', {
+            'request_id': request_id,
+            'user_id': request.sender_id,
+            'username': users.query.get(request.sender_id).username
+        }, room=f'user_{request.receiver_id}')
+        
+        return {'success': True}
+    return {'success': False, 'message': 'Request not found'}
+
+@socketio.on('reject_friend_request')
+def handle_reject_friend_request(data):
+    request_id = data.get('request_id')
+    request = friend_requests.query.get(request_id)
+    
+    if request:
+        db.session.delete(request)
+        db.session.commit()
+        return {'success': True}
+    return {'success': False, 'message': 'Request not found'}
+    
+
+# @socketio.on('private_message')
+# def handle_private_message(data):
+#     sender_id = data.get('sender_id')
+#     receiver_id = data.get('receiver_id')
+#     content = data.get('message')
+    
+#     new_message = messages(sender_id = sender_id,
+#                            receiver_id = receiver_id,
+#                            content = content
+#                            )
+#     db.session.add(new_message)
+#     db.session.commit()
+    
+#     emit('new_message', {
+#         'id': new_message.id,
+#         'sender_id': sender_id,
+#         'content': content,
+#         'timestamp': new_message.timestamp.isoformat()
+#     }, room = f'user_{receiver_id}')
     
     
     
