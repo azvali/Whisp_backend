@@ -461,7 +461,7 @@ def handle_private_message(data):
     #emit to sender
     emit('new_message', {
         'id': new_message.id,
-        'receiver_id': receiver_id,
+        'sender_id': sender_id,
         'content': content,
         'timestamp': new_message.timestamp.isoformat()
     }, room = f'user_{sender_id}')
