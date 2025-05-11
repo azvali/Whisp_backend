@@ -436,25 +436,37 @@ def handle_reject_friend_request(data):
     return {'success': False, 'message': 'Request not found'}
     
 
-# @socketio.on('private_message')
-# def handle_private_message(data):
-#     sender_id = data.get('sender_id')
-#     receiver_id = data.get('receiver_id')
-#     content = data.get('message')
+@socketio.on('private_message')
+def handle_private_message(data):
+    sender_id = data.get('sender_id')
+    receiver_id = data.get('receiver_id')
+    content = data.get('content')
     
-#     new_message = messages(sender_id = sender_id,
-#                            receiver_id = receiver_id,
-#                            content = content
-#                            )
-#     db.session.add(new_message)
-#     db.session.commit()
+    new_message = messages(sender_id = sender_id,
+                           receiver_id = receiver_id,
+                           content = content
+                           )
+    db.session.add(new_message)
+    db.session.commit()
     
-#     emit('new_message', {
-#         'id': new_message.id,
-#         'sender_id': sender_id,
-#         'content': content,
-#         'timestamp': new_message.timestamp.isoformat()
-#     }, room = f'user_{receiver_id}')
+    
+    #emit to reciever
+    emit('new_message', {
+        'id': new_message.id,
+        'sender_id': sender_id,
+        'content': content,
+        'timestamp': new_message.timestamp.isoformat()
+    }, room = f'user_{receiver_id}')
+    
+    #emit to sender
+    emit('new_message', {
+        'id': new_message.id,
+        'receiver_id': receiver_id,
+        'content': content,
+        'timestamp': new_message.timestamp.isoformat()
+    }, room = f'user_{sender_id}')
+    
+    return {'success': True, 'message': 'Message sent successfully'}
     
     
     
